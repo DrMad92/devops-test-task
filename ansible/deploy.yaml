@@ -1,0 +1,51 @@
+---
+- hosts: all
+  become: yes
+  become_user: root
+  vars:
+    stack_data: "{{ lookup('file','stack_data.json') | from_json }}"
+  
+  tasks:
+  - name: Install pip3
+    apt:
+      pkg: python3-pip
+      state: present
+      update_cache: true
+
+  - name: "Install python libraries"
+    pip:
+      name: ['docker-py']
+      state: latest
+    tags:
+      - always
+
+  - name: Install docker
+    apt: 
+      pkg: docker.io
+      state: present
+      update_cache: true
+    register: docker_started
+    notify: Enable docker
+  
+  - name: Start webapp container
+    docker_container:
+      name: webapp
+      image: mmadraimov/webapp:v1.0
+      state: started
+      restart_policy: unless-stopped
+      ports:
+      - "8000:8000"
+      env:
+          SERVER: "{{ stack_data.PostgresDNS }}"
+    when: docker_started is success
+
+  - debug: 
+      msg:
+      - "Webapp link: {{stack_data.ELBPublicDNSName}}"
+      - "SSH access ip: {{stack_data.webappEC2IP}}"
+
+  handlers:
+  - name: Enable docker
+    service:
+      name: docker
+      enabled: true

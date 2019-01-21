@@ -1,0 +1,58 @@
+---
+- hosts: localhost
+  connection: local
+
+  tasks:
+  - name: Include variables
+    include_vars: vars.yml
+
+  - name: create a new ec2 key pair
+    ec2_key:
+      name: "keypair"
+      state: "present"
+      region: "{{aws_region}}"
+      aws_access_key: "{{aws_access_key}}"
+      aws_secret_key: "{{aws_secret_key}}"
+    register: ec2_key
+
+  - name: save private key
+    copy:
+      content: "{{ ec2_key.key.private_key }}" 
+      dest: "{{ ec2_keypair_name }}.pem" 
+      mode: 0600
+    when: ec2_key.changed
+
+  - name: create a cloudformation stack
+    cloudformation:
+      stack_name: "wallester-test"
+      state: "present"
+      region: "{{aws_region}}"
+      aws_access_key: "{{aws_access_key}}"
+      aws_secret_key: "{{aws_secret_key}}"
+      template: "cloudformation/infrastructure.json"
+      template_parameters:
+        KeyName: "{{ ec2_keypair_name }}"
+        MasterUsername: "testdbmaster"
+        MasterPassword: "testdbmasterpass"
+    when: ec2_key is success
+    register: aws_stack
+
+  - name: Build hosts file
+    lineinfile: 
+      create: true
+      state: present
+      dest: "./ec2_hosts"
+      line: "{{item}}"
+    when: aws_stack.stack_outputs.webappEC2IP is defined
+    with_items:
+      - "{{aws_stack.stack_outputs.webappEC2IP}}"
+      - "[all:vars]"
+      - "ansible_ssh_private_key_file={{ec2_keypair_name}}.pem"
+      - "ansible_ssh_user=ubuntu"
+      - "ansible_python_interpreter=/usr/bin/python3"
+  
+  - name: Export stack data
+    copy:
+      dest: "./stack_data.json"
+      content: "{{aws_stack.stack_outputs | to_nice_json}}"
+    when: aws_stack.stack_outputs is defined

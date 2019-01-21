@@ -1,0 +1,31 @@
+{{define "main"}}
+<html>
+    <head>
+    <title></title>
+    </head>
+    <body>
+        <form action="/add" method="post">
+            Name:<input type="text" name="name">
+            <input type="submit" value="Add">
+        </form>
+        <form action="/delete" method="post">
+            ID:<input type="text" name="id">
+            <input type="submit" value="Delete by ID">
+        </form>
+    </body>
+</html>
+<table border="1">
+ <tr>
+  <th>ID</th>
+  <th>Name</th>
+  <th>Created At</th>
+ </tr>
+    {{range .}}
+    <tr>
+        <td>{{.ID}} </td> 
+        <td>{{.Name}} </td>
+        <td>{{.CreatedAt}} </td>
+    </tr>
+    {{end}}
+</table>
+{{end}}
