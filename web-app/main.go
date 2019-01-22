@@ -12,7 +12,7 @@ import (
 var (
 	dbServer = flag.String("dbserver", "localhost", "database server ip")
 	host     = flag.String("host", "0.0.0.0:8000", "host to serve web")
-	port     = flag.Int("port", 5432, "port number")
+	port     = flag.Int("port", 5432, "database server port number")
 	user     = flag.String("user", "testdbmaster", "postgres username")
 	password = flag.String("password", "testdbmasterpass", "postgres password")
 	dbName   = flag.String("dbname", "testdb1", "database name")

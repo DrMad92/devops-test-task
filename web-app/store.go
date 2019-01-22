@@ -75,9 +75,6 @@ func (store *dbStore) AddEntry(name string) error {
 	VALUES ($1)`
 
 	_, err := store.db.Exec(sqlStatement, name)
-	if err != nil {
-		return err
-	}
 
 	return err
 }
