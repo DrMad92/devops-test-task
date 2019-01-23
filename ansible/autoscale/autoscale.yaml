@@ -1,0 +1,10 @@
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  vars_files:
+    - creds.yml
+
+  roles:
+    - role: launch
+      vars: 
+        name: ami-template
