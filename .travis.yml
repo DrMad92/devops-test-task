@@ -6,10 +6,23 @@ go:
 services:
   - docker
 
-before_install:
-  - cd ./web-app
+stages:
+  - webapp
+  - docker
 
-after_install:
-  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-  - docker build -t ${DOCKER_USERNAME}/webapp:latest .
-  - docker push ${DOCKER_USERNAME}/webapp:latest
+jobs:
+  include:
+    - stage: webapp
+      before_install:
+        - cd ./web-app
+      install:
+        - make deps
+      script:
+        - make build
+
+    - stage: docker
+      before_install:
+        - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+      script:
+        - docker build -t ${DOCKER_USERNAME}/webapp:latest .
+        - docker push ${DOCKER_USERNAME}/webapp:latest
