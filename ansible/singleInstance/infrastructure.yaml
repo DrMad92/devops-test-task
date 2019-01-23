@@ -1,11 +1,11 @@
 ---
 - hosts: localhost
   connection: local
-
+  vars_files:
+    - creds.yml
+    - vars.yml
+  
   tasks:
-  - name: Include variables
-    include_vars: vars.yml
-
   - name: create a new ec2 key pair
     ec2_key:
       name: "keypair"
@@ -22,20 +22,46 @@
       mode: 0600
     when: ec2_key.changed
 
-  - name: create a cloudformation stack
+  - name: Create infrastructure network
     cloudformation:
-      stack_name: "wallester-test"
+      stack_name: "{{network_stack_name}}"
       state: "present"
       region: "{{aws_region}}"
       aws_access_key: "{{aws_access_key}}"
       aws_secret_key: "{{aws_secret_key}}"
-      template: "cloudformation/infrastructure.json"
-      template_parameters:
-        KeyName: "{{ ec2_keypair_name }}"
-        MasterUsername: "testdbmaster"
-        MasterPassword: "testdbmasterpass"
+      template: "cloudformation/network.json"
     when: ec2_key is success
-    register: aws_stack
+    register: aws_network_stack
+
+  - name: create database stack
+    cloudformation:
+      stack_name: "{{database_stack_name}}"
+      state: "present"
+      region: "{{aws_region}}"
+      aws_access_key: "{{aws_access_key}}"
+      aws_secret_key: "{{aws_secret_key}}"
+      template: "cloudformation/database.json"
+      template_parameters:
+        NetworkStackName: "{{network_stack_name}}"
+        MasterUsername: "{{ db_master_username }}"
+        MasterPassword: "{{ db_master_password }}"
+    when: aws_network_stack is success
+    register: aws_database_stack
+
+  - name: create webapp stack
+    cloudformation:
+      stack_name: "{{webapp_stack_name}}"
+      state: "present"
+      region: "{{aws_region}}"
+      aws_access_key: "{{aws_access_key}}"
+      aws_secret_key: "{{aws_secret_key}}"
+      template: "cloudformation/webapp.json"
+      template_parameters:
+        NetworkStackName: "{{network_stack_name}}"
+        DatabaseStackName: "{{database_stack_name}}"
+        KeyName: "{{ ec2_keypair_name }}"
+    when: aws_database_stack is success
+    register: aws_webapp_stack
 
   - name: Build hosts file
     lineinfile: 
@@ -43,16 +69,22 @@
       state: present
       dest: "./ec2_hosts"
       line: "{{item}}"
-    when: aws_stack.stack_outputs.webappEC2IP is defined
+    when: aws_webapp_stack.stack_outputs.webappEC2IP is defined
     with_items:
-      - "{{aws_stack.stack_outputs.webappEC2IP}}"
+      - "{{aws_webapp_stack.stack_outputs.webappEC2IP}}"
       - "[all:vars]"
       - "ansible_ssh_private_key_file={{ec2_keypair_name}}.pem"
       - "ansible_ssh_user=ubuntu"
       - "ansible_python_interpreter=/usr/bin/python3"
   
   - name: Export stack data
-    copy:
-      dest: "./stack_data.json"
-      content: "{{aws_stack.stack_outputs | to_nice_json}}"
-    when: aws_stack.stack_outputs is defined
+    lineinfile:
+      create: true
+      state: present
+      dest: "./stack_data.yaml"
+      line: "{{item}}"
+    when: aws_webapp_stack.stack_outputs is defined
+    with_items:
+      - "ELBPublicDNS: {{aws_webapp_stack.stack_outputs.ELBPublicDNSName}}"
+      - "WebappEC2IP: {{aws_webapp_stack.stack_outputs.webappEC2IP}}"
+      - "PostgresDNS: {{aws_database_stack.stack_outputs.PostgresDNS}}"

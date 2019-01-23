@@ -2,8 +2,9 @@
 - hosts: all
   become: yes
   become_user: root
-  vars:
-    stack_data: "{{ lookup('file','stack_data.json') | from_json }}"
+  vars_files:
+    - creds.yml
+    - stack_data.yaml
   
   tasks:
   - name: Install pip3
@@ -36,13 +37,15 @@
       ports:
       - "8000:8000"
       env:
-          SERVER: "{{ stack_data.PostgresDNS }}"
+          SERVER: "{{ PostgresDNS }}"
+          USER: "{{ db_master_username }}"
+          PASSWORD: "{{ db_master_password }}"
     when: docker_started is success
 
   - debug: 
       msg:
-      - "Webapp link: {{stack_data.ELBPublicDNSName}}"
-      - "SSH access ip: {{stack_data.webappEC2IP}}"
+      - "Webapp link: {{ELBPublicDNS}}"
+      - "SSH access ip: {{WebappEC2IP}}"
 
   handlers:
   - name: Enable docker
