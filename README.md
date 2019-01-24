@@ -12,7 +12,8 @@ To edit file: `ansible-vault edit creds.yml`<br>
 Password: **wallester**
 
 # Start deployment
-Execute `run.sh`
+Execute `run.sh`<br>
+Outputs Load balancer DNS name to access webapp and EC2 public IP for ssh.
 
 # Cleanup
 Execute `clean.sh`<br>
