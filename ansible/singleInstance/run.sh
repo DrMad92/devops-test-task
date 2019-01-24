@@ -1,4 +1,5 @@
 #!/bin/bash
+
 echo "Enter vault password"
 read -s VAULT_PASS
 mkfifo -m 600 ./vault_pass
