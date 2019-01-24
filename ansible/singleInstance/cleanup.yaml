@@ -1,0 +1,54 @@
+# Clean up tasks
+---
+- hosts: localhost
+  connection: local
+  vars_files:
+    - creds.yml
+    - vars.yml
+
+  tasks:
+  - name: remove EC2 key pair
+    ec2_key:
+      name: "{{ec2_keypair_name}}"
+      aws_access_key: "{{aws_access_key}}"
+      aws_secret_key: "{{aws_secret_key}}"
+      region: "{{aws_region}}"
+      state: absent
+
+  - name: delete a webapp stack
+    cloudformation:
+      stack_name: "{{webapp_stack_name}}"
+      aws_access_key: "{{aws_access_key}}"
+      aws_secret_key: "{{aws_secret_key}}"
+      region: "{{aws_region}}"
+      state: "absent"
+    register: webapp_deleted
+
+  - name: delete a database stack
+    cloudformation:
+      stack_name: "{{database_stack_name}}"
+      aws_access_key: "{{aws_access_key}}"
+      aws_secret_key: "{{aws_secret_key}}"
+      region: "{{aws_region}}"
+      state: "absent"
+    when: webapp_deleted is success
+    register: database_deleted
+
+  - name: delete a network stack
+    cloudformation:
+      stack_name: "{{network_stack_name}}"
+      aws_access_key: "{{aws_access_key}}"
+      aws_secret_key: "{{aws_secret_key}}"
+      region: "{{aws_region}}"
+      state: "absent"
+    when: database_deleted is success
+
+
+  - name: delete files
+    file:
+      path: "{{ item }}"
+      state: absent
+    with_items:
+      - ec2_hosts
+      - keypair.pem
+      - stack_data.yaml
