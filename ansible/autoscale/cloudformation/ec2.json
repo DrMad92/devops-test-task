@@ -1,0 +1,113 @@
+{
+    "Parameters":{
+        "NetworkStackName":{
+            "Description" : "Network stack name to import values from",
+            "Type": "String"
+        },
+          "DatabaseStackName":{
+            "Description" : "Database stack name to import values from",
+            "Type": "String"
+        },
+          "KeyName": {
+            "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instances",
+            "Type": "AWS::EC2::KeyPair::KeyName",
+            "ConstraintDescription" : "must be the name of an existing EC2 KeyPair."
+        },
+        "AMI":{
+            "Description": "Ubuntu 18.04 AMI id",
+            "Type": "String"
+        }
+    },
+    "Resources": {
+        "webappEC2": {
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+              "DisableApiTermination": "false",
+              "InstanceInitiatedShutdownBehavior": "stop",
+              "ImageId": { "Ref" : "AMI"},
+              "InstanceType": "t2.micro",
+              "KeyName": { "Ref" : "KeyName" },
+              "Monitoring": "false",
+              "NetworkInterfaces": [
+                {
+                  "DeleteOnTermination": "true",
+                  "Description": "Primary network interface",
+                  "DeviceIndex": 0,
+                  "SubnetId": {
+                    "Fn::ImportValue" : {"Fn::Sub" : "${NetworkStackName}-subnet0"}
+                  },
+                  "GroupSet": [
+                    {
+                      "Fn::ImportValue" : {"Fn::Sub" : "${DatabaseStackName}-DBsg"}
+                    },
+                    {
+                      "Ref": "EC2sg"
+                    }
+                  ],
+                  "AssociatePublicIpAddress": "true"
+                }
+              ]
+            }
+        },
+        "EC2sg": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+              "GroupDescription": "webserver security group",
+              "VpcId": {
+                "Fn::ImportValue" : {"Fn::Sub" : "${NetworkStackName}-VPC"}
+              }
+            }
+        },
+        "EC2ingress1": {
+            "Type": "AWS::EC2::SecurityGroupIngress",
+            "Properties": {
+              "GroupId": {
+                "Ref": "EC2sg"
+              },
+              "IpProtocol": "tcp",
+              "FromPort": "8000",
+              "ToPort": "8000",
+              "CidrIp": "0.0.0.0/0"
+            }
+          },
+          "EC2ingress2": {
+            "Type": "AWS::EC2::SecurityGroupIngress",
+            "Properties": {
+              "GroupId": {
+                "Ref": "EC2sg"
+              },
+              "IpProtocol": "tcp",
+              "FromPort": "22",
+              "ToPort": "22",
+              "CidrIp": "0.0.0.0/0"
+            }
+          },
+          "EC2egress1": {
+            "Type": "AWS::EC2::SecurityGroupEgress",
+            "Properties": {
+              "GroupId": {
+                "Ref": "EC2sg"
+              },
+              "IpProtocol": "-1",
+              "CidrIp": "0.0.0.0/0"
+            }
+          }
+    },
+    "Outputs":{
+        "EC2PublicIP" : {
+            "Description" : "EC2 public IP return",
+            "Value": {
+                "Fn::GetAtt": [
+                  "webappEC2",
+                  "PublicIp"
+                ]
+              }
+        },
+        "EC2InstanceID" : {
+            "Description" : "EC2 instance ID return",
+            "Value": {
+                "Ref": "webappEC2"
+              }
+        }
+    }
+}

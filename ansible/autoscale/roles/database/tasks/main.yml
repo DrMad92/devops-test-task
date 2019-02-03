@@ -1,0 +1,25 @@
+---
+# tasks file for database
+- name: create database stack
+  cloudformation:
+    stack_name: "{{database_stack_name}}"
+    state: "present"
+    region: "{{aws_region}}"
+    aws_access_key: "{{aws_access_key}}"
+    aws_secret_key: "{{aws_secret_key}}"
+    template: "cloudformation/database.json"
+    template_parameters:
+      NetworkStackName: "{{network_stack_name}}"
+      MasterUsername: "{{ db_master_username }}"
+      MasterPassword: "{{ db_master_password }}"
+  register: aws_database_stack
+
+  # - name: Export stack data
+  #   lineinfile:
+  #     create: true
+  #     state: present
+  #     dest: "./stack_data.yaml"
+  #     line: "{{item}}"
+  #   when: aws_database_stack.stack_outputs is defined
+  #   with_items:
+  #     - "PostgresDNS: {{aws_database_stack.stack_outputs.PostgresDNS}}"

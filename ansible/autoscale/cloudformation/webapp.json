@@ -1,0 +1,180 @@
+
+{
+  "Parameters": {
+    "NetworkStackName":{
+      "Description" : "Network stack name to import values from",
+      "Type": "String"
+    },
+    "DatabaseStackName":{
+      "Description" : "Database stack name to import values from",
+      "Type": "String"
+    },
+    "KeyName": {
+      "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instances",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription" : "must be the name of an existing EC2 KeyPair."
+    },
+    "ImageID": {
+      "Description" : "AMI template image id",
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "AutoScalingGroup": {
+      "Type" : "AWS::AutoScaling::AutoScalingGroup",
+      "Properties" : {
+         "AutoScalingGroupName" : "AutoScalingGroup",
+         "Cooldown":"180",
+         "HealthCheckType":"ELB",
+         "HealthCheckGracePeriod": 90,
+         "LaunchConfigurationName" : { "Ref" : "LaunchConfig"},
+         "LoadBalancerNames" : [ 
+            {
+              "Ref":"elbclassiclb"
+            }
+          ],
+         "MaxSize" : "2",
+         "MinSize" : "1",
+         "VPCZoneIdentifier" : [
+          {"Fn::ImportValue" : {"Fn::Sub" : "${NetworkStackName}-subnet0"}},
+          {"Fn::ImportValue" : {"Fn::Sub" : "${NetworkStackName}-subnet1"}}
+         ]
+      }
+   },
+    "LaunchConfig" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Properties" : {
+          "KeyName" : { "Ref" : "KeyName" },
+          "ImageId" : { "Ref" : "ImageID" },
+          "SecurityGroups" : [ 
+           { 
+             "Ref" : "EC2sg" 
+            },
+            {
+              "Fn::ImportValue" : {"Fn::Sub" : "${DatabaseStackName}-DBsg"}
+            } 
+        ],
+         "InstanceType" : "t2.micro"
+      }
+   },
+    "elbclassiclb": {
+      "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+      "Properties": {
+        "Subnets": [
+          {
+              "Fn::ImportValue" : {"Fn::Sub" : "${NetworkStackName}-subnet0"}
+          },
+          {
+              "Fn::ImportValue" : {"Fn::Sub" : "${NetworkStackName}-subnet1"}
+          }
+        ],
+        "HealthCheck": {
+          "HealthyThreshold": "2",
+          "Interval": "10",
+          "Target": "HTTP:8000/",
+          "Timeout": "5",
+          "UnhealthyThreshold": "2"
+        },
+        "ConnectionDrainingPolicy": {
+          "Enabled": "true",
+          "Timeout": "300"
+        },
+        "ConnectionSettings": {
+          "IdleTimeout": "60"
+        },
+        "CrossZone": "true",
+        "Scheme": "internet-facing",
+        "SecurityGroups": [
+          {
+            "Ref": "ELBsg"
+          }
+        ],
+        "Listeners": [
+          {
+            "InstancePort": "8000",
+            "LoadBalancerPort": "80",
+            "Protocol": "HTTP",
+            "InstanceProtocol": "HTTP"
+          }
+        ]
+      }
+    },
+    "EC2sg": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "webserver security group",
+        "VpcId": {
+          "Fn::ImportValue" : {"Fn::Sub" : "${NetworkStackName}-VPC"}
+        }
+      }
+    },
+    "ELBsg": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "load-balancer-sg",
+        "VpcId": {
+          "Fn::ImportValue" : {"Fn::Sub" : "${NetworkStackName}-VPC"}
+        }
+      }
+    },
+    "EC2ingress1": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "EC2sg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": "8000",
+        "ToPort": "8000",
+        "SourceSecurityGroupId": {
+          "Ref": "ELBsg"
+        },
+        "SourceSecurityGroupOwnerId": {
+          "Ref": "ELBsg"
+        }
+      }
+    },
+    "ELBingress1": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "ELBsg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": "80",
+        "ToPort": "80",
+        "CidrIp": "0.0.0.0/0"
+      }
+    },
+    "EC2egress1": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "EC2sg"
+        },
+        "IpProtocol": "-1",
+        "CidrIp": "0.0.0.0/0"
+      }
+    },
+    "ELBegress1": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "ELBsg"
+        },
+        "IpProtocol": "-1",
+        "CidrIp": "0.0.0.0/0"
+      }
+    }
+  },
+  "Outputs": {
+    "ELBPublicDNSName": {
+      "Value": {
+        "Fn::GetAtt": [
+          "elbclassiclb",
+          "DNSName"
+        ]
+      }
+    }
+  }
+}

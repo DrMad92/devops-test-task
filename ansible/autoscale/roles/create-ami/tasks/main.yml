@@ -1,0 +1,13 @@
+---
+# tasks file for create-ami
+- name: Create AMI
+  ec2_ami:
+    region: "{{ aws_region }}"
+    aws_access_key: "{{aws_access_key}}"
+    aws_secret_key: "{{aws_secret_key}}"
+    instance_id: "{{ hostvars[item]['ec2_id'] }}"
+    name: "webapp-{{ ansible_date_time.date }}"
+    wait: yes
+    state: present
+  register: ami
+  with_items: "{{ groups['ami-template'] }}"

@@ -1,0 +1,64 @@
+---
+# tasks file for 
+- name: Search for the Ubuntu 18.04 AMI
+  ec2_ami_facts:
+    aws_access_key: "{{ aws_access_key }}"
+    aws_secret_key: "{{ aws_secret_key }}"
+    region: "{{ aws_region }}"
+    owners: 099720109477
+    filters: 
+      name: "ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-*"
+      architecture: "x86_64"
+  register: amis_result
+
+- name: Get latest AMI
+  set_fact:
+    ami_latest: "{{ amis_result.images | sort(attribute='creation_date') | last }}"
+
+- name: create a new ec2 key pair
+  ec2_key:
+    name: "{{ec2_keypair}}"
+    state: "present"
+    region: "{{aws_region}}"
+    aws_access_key: "{{aws_access_key}}"
+    aws_secret_key: "{{aws_secret_key}}"
+  register: ec2_key
+
+- name: save private key
+  copy:
+    content: "{{ ec2_key.key.private_key }}" 
+    dest: "{{ ec2_keypair }}.pem" 
+    mode: 0600
+  when: ec2_key.changed
+
+- name: Launch ec2 instance
+  cloudformation:
+    stack_name: "{{template_name}}"
+    state: present
+    aws_access_key: "{{aws_access_key}}"
+    aws_secret_key: "{{aws_secret_key}}"
+    region: "{{ aws_region }}"
+    template: "cloudformation/ec2.json"
+    template_parameters:
+      NetworkStackName: "{{network_stack_name}}"
+      DatabaseStackName: "{{database_stack_name}}"
+      KeyName: "{{ ec2_keypair }}"
+      AMI: "{{ ami_latest.image_id }}"
+  register: ec2
+
+- name: Add new instances to host group
+  add_host:
+    name: "{{ ec2.stack_outputs.EC2PublicIP }}"
+    groups: "{{ template_name }}"
+    ec2_id: "{{ ec2.stack_outputs.EC2InstanceID }}"
+    ansible_ssh_private_key_file: "{{ec2_keypair}}.pem"
+    ansible_ssh_user: "ubuntu"
+    ansible_python_interpreter: "/usr/bin/python3"
+
+- name: Wait for instance to boot
+  wait_for:
+    host: "{{ ec2.stack_outputs.EC2PublicIP }}"
+    port: 22
+    delay: 10
+    timeout: 300
+    state: started

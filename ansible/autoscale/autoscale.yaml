@@ -5,6 +5,28 @@
     - creds.yml
 
   roles:
-    - role: launch
+    - role: infra
+    - role: database
+    - role: ec2
       vars: 
-        name: ami-template
+        template_name: ami-template 
+  
+- hosts: ami-template
+  become: yes
+  become_user: root
+  gather_facts: no
+  vars_files:
+    - creds.yml
+  roles:
+    - role: deploy-ami
+  
+- hosts: localhost
+  connection: local
+  vars_files:
+    - creds.yml
+  roles:
+    - role: create-ami
+    - role: cleanup
+      vars: 
+        template_name: ami-template
+    - role: deploy-webapp-stack

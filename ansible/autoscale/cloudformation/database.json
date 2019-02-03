@@ -1,0 +1,125 @@
+{
+  "Parameters":{
+      "NetworkStackName":{
+          "Description" : "Network stack name to import values from",
+          "Type": "String"
+      },
+      "MasterUsername":{
+          "NoEcho": "false",
+          "Description" : "The Postgres database admin account user name",
+          "Type": "String",
+          "MinLength": "1",
+          "MaxLength": "16",
+          "AllowedPattern" : "[a-zA-Z][a-zA-Z0-9]*"
+      },
+      "MasterPassword":{
+          "NoEcho": "true",
+          "Description" : "The Postgres database admin account password",
+          "Type": "String",
+          "MinLength": "1",
+          "MaxLength": "16",
+          "AllowedPattern" : "[a-zA-Z][a-zA-Z0-9]*"
+      }
+  },
+  "Resources":{
+      "postgresInstance": {
+          "Type": "AWS::RDS::DBInstance",
+          "Properties": {
+            "AllocatedStorage": "20",
+            "AllowMajorVersionUpgrade": "false",
+            "AutoMinorVersionUpgrade": "true",
+            "DBInstanceClass": "db.t2.micro",
+            "Port": "5432",
+            "StorageType": "gp2",
+            "BackupRetentionPeriod": "0",
+            "MasterUsername": {
+                "Ref" : "MasterUsername"
+            },
+            "MasterUserPassword": {
+              "Ref" : "MasterPassword"
+            },
+            "PreferredBackupWindow": "03:25-03:55",
+            "PreferredMaintenanceWindow": "mon:22:21-mon:22:51",
+            "DBInstanceIdentifier": "testdb",
+            "DBName": "testDB",
+            "Engine": "postgres",
+            "EngineVersion": "10.4",
+            "LicenseModel": "postgresql-license",
+            "MultiAZ": true,
+            "DBSubnetGroupName": {
+              "Ref": "dbsubnetdefaultvpc"
+            },
+            "VPCSecurityGroups": [
+              {
+                "Ref": "DBsg"
+              }
+            ]
+          }
+        },
+        "dbsubnetdefaultvpc": {
+          "Type": "AWS::RDS::DBSubnetGroup",
+          "Properties": {
+            "DBSubnetGroupDescription": "Created from the ansible cfn stack",
+            "SubnetIds": [
+              {
+                  "Fn::ImportValue" : {"Fn::Sub" : "${NetworkStackName}-subnet0"}
+              },
+              {
+                  "Fn::ImportValue" : {"Fn::Sub" : "${NetworkStackName}-subnet1"}
+              }
+            ]
+          }
+        },
+        "DBsg": {
+          "Type": "AWS::EC2::SecurityGroup",
+          "Properties": {
+            "GroupDescription": "db sg",
+            "VpcId": {
+              "Fn::ImportValue" : {"Fn::Sub" : "${NetworkStackName}-VPC"}
+              }
+          }
+        },
+        
+        "DBingress1": {
+        "Type": "AWS::EC2::SecurityGroupIngress",
+        "Properties": {
+            "GroupId": {
+            "Ref": "DBsg"
+            },
+            "IpProtocol": "-1",
+            "SourceSecurityGroupId": {
+            "Ref": "DBsg"
+            },
+            "SourceSecurityGroupOwnerId": {
+                "Ref": "DBsg"
+            }
+        }
+        },
+        "DBegress1": {
+            "Type": "AWS::EC2::SecurityGroupEgress",
+            "Properties": {
+              "GroupId": {
+                "Ref": "DBsg"
+              },
+              "IpProtocol": "-1",
+              "CidrIp": "0.0.0.0/0"
+            }
+          }
+            
+    },
+    "Outputs": {
+      "DatabaseSG" : {
+        "Description" : "The Database security group",
+        "Value" :  { "Ref" : "DBsg" },
+        "Export" : { "Name" : {"Fn::Sub": "${AWS::StackName}-DBsg" }}
+    },
+        "PostgresDNS": {
+          "Value": {
+            "Fn::GetAtt": [
+              "postgresInstance",
+              "Endpoint.Address"
+            ]
+          }
+        }
+      }
+}

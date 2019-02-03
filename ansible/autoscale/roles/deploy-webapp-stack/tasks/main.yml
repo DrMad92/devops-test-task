@@ -1,0 +1,22 @@
+---
+# tasks file for deploy-webapp-stack
+
+- name: Deploy webapp stack
+  cloudformation:
+    stack_name: "{{webapp_stack_name}}"
+    state: "present"
+    region: "{{aws_region}}"
+    aws_access_key: "{{aws_access_key}}"
+    aws_secret_key: "{{aws_secret_key}}"
+    template: "cloudformation/webapp.json"
+    template_parameters:
+      NetworkStackName: "{{network_stack_name}}"
+      DatabaseStackName: "{{database_stack_name}}"
+      KeyName: "{{ ec2_keypair }}"
+      ImageID: "{{ ami.results[0].image_id }}"
+  when: aws_database_stack is success
+  register: aws_webapp_stack
+
+- debug: 
+    msg:
+    - "Webapp link: {{ aws_webapp_stack.stack_outputs.ELBPublicDNSName }}"

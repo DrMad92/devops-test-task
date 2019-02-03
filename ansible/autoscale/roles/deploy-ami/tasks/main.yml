@@ -1,0 +1,48 @@
+---
+# tasks file for deploy-ami
+- name: apt update
+  apt:
+    update_cache: yes
+  register: apt_updated
+
+- name: Install pip3
+  apt:
+    pkg: python3-pip
+    state: present
+  when: apt_updated is success
+
+- name: "Install python libraries"
+  pip:
+    name: ['docker-py']
+    state: latest
+  tags:
+    - always
+
+- name: Install docker
+  apt: 
+    pkg: docker.io
+    state: present
+  register: docker_started
+
+- name: Enable docker
+  shell: systemctl enable docker
+
+- name: Create a docker network
+  docker_network:
+    name: network_webapp
+
+- name: Start webapp container
+  docker_container:
+    name: webapp
+    image: mmadraimov/webapp:latest
+    state: started
+    restart_policy: always
+    networks:
+      - name: network_webapp
+    ports:
+    - "8000:8000"
+    env:
+        SERVER: "{{ hostvars['localhost']['aws_database_stack']['stack_outputs']['PostgresDNS'] }}"
+        USER: "{{ db_master_username }}"
+        PASSWORD: "{{ db_master_password }}"
+  when: docker_started is success
