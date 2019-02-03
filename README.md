@@ -3,8 +3,8 @@ Wallester test task
 
 # Description
 `webapp`: Simple webapp, that communicates with PostgreSQL database, and allows CREATE and DELETE operations.<br>
-`ansible/singleInstance`: Ansible playbooks to deploy webapp and infrastructure on AWS. Infrastructure deployed using Clouformation templates, and webapp with docker container.<br>
-`ansible/autoscale`: Not finished.
+`ansible/singleInstance`: Ansible playbooks to deploy single instance webapp and infrastructure on AWS. Infrastructure deployed using Clouformation templates, and webapp with docker container.<br>
+`ansible/autoscale`: Deploys autoscaling webapp and infrastructure.
 
 # Initial setup
 Before deploying, change credential variables in `creds.yml` file.<br>
