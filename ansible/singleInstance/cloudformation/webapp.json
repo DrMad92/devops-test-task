@@ -131,7 +131,6 @@
         }
       }
     },
-    
     "EC2ingress1": {
       "Type": "AWS::EC2::SecurityGroupIngress",
       "Properties": {

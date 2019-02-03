@@ -1,6 +1,6 @@
 ---
 # vars file for infrastructure
-aws_region: "eu-west-3" # Paris
+aws_region: "eu-west-1" # ireland
 ec2_keypair_name: "keypair"
 network_stack_name: "wallester-test-network"
 database_stack_name: "wallester-test-database"

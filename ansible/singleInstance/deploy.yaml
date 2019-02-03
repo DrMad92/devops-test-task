@@ -28,14 +28,16 @@
       pkg: docker.io
       state: present
     register: docker_started
-    notify: Enable docker
+  
+  - name: Enable docker
+    shell: systemctl enable docker
   
   - name: Start webapp container
     docker_container:
       name: webapp
       image: mmadraimov/webapp:latest
       state: started
-      restart_policy: unless-stopped
+      restart_policy: always
       ports:
       - "8000:8000"
       env:
@@ -48,9 +50,3 @@
       msg:
       - "Webapp link: {{ELBPublicDNS}}"
       - "SSH access ip: {{WebappEC2IP}}"
-
-  handlers:
-  - name: Enable docker
-    service:
-      name: docker
-      enabled: true
